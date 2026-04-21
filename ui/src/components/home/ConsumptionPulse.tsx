@@ -18,6 +18,8 @@ export function ConsumptionPulse({ loading }: ConsumptionPulseProps) {
   const sessionReset = useTokenStore((s) => s.sessionReset);
   const burnRatePerMin = useTokenStore((s) => s.burnRatePerMin);
   const costRatePerMin = useTokenStore((s) => s.costRatePerMin);
+  const sessionTokens = useTokenStore((s) => s.sessionTokens);
+  const tokenLimit = useTokenStore((s) => s.tokenLimit);
   const tokensExhaustAt = useTokenStore((s) => s.tokensExhaustAt);
   const monthlyBudget = useSettingsStore((s) => s.monthlyCostBudget);
 
@@ -38,6 +40,14 @@ export function ConsumptionPulse({ loading }: ConsumptionPulseProps) {
 
   // Tokens will run out at (exact time from backend prediction)
   const runOutTime = tokensExhaustAt;
+
+  // Usage percentage for status label
+  const usagePct = tokenLimit > 0 ? (sessionTokens / tokenLimit) * 100 : 0;
+
+  // Status label: show percentage warning if >= 70%, else "Safe"
+  const exhaustLabel = runOutTime ? formatTime(runOutTime, "—") : (usagePct >= 70 ? `${usagePct.toFixed(0)}% used` : "Safe");
+  const exhaustUnit  = runOutTime ? "estimated" : (usagePct >= 70 ? "near limit" : "won't hit limit");
+  const exhaustColor = runOutTime ? "var(--red)" : (usagePct >= 90 ? "var(--red)" : usagePct >= 70 ? "var(--orange)" : "var(--green)");
 
   // Limit resets at (exact time from session window)
   const resetAtTime = sessionReset;
@@ -70,9 +80,9 @@ export function ConsumptionPulse({ loading }: ConsumptionPulseProps) {
     {
       icon: Target,
       label: "Tokens Exhaust At",
-      value: runOutTime ? formatTime(runOutTime, "—") : "Safe",
-      unit: runOutTime ? "estimated" : "won't hit limit",
-      color: runOutTime ? "var(--orange)" : "var(--green)",
+      value: exhaustLabel,
+      unit: exhaustUnit,
+      color: exhaustColor,
     },
     {
       icon: CalendarClock,

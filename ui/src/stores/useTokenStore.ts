@@ -84,31 +84,37 @@ export const useTokenStore = create<TokenStore>((set) => ({
   planType: "custom",
 
   updateFromWebSocket: (data: LiveUpdate) => {
-    const sessionUpdate = data.session
-      ? {
-          sessionTokens: data.session.sessionTokens,
-          sessionCost: data.session.sessionCost,
-          sessionMessages: data.session.sessionMessages,
-          sessionStart: data.session.sessionStart,
-          sessionReset: data.session.sessionReset,
-          burnRatePerMin: data.session.burnRatePerMin,
-          costRatePerMin: data.session.costRatePerMin,
-          tokensExhaustAt: data.session.tokensExhaustAt,
-          tokenLimit: data.session.tokenLimit,
-          planType: data.session.planType,
-        }
-      : {};
+    set((prev) => {
+      const todayTotal = data.todayTotal > 0 ? data.todayTotal : prev.todayTotal;
+      const costToday  = data.costToday  > 0 ? data.costToday  : prev.costToday;
+      const burnRate   = data.burnRate   > 0 ? data.burnRate   : prev.burnRate;
 
-    set({
-      todayTotal: data.todayTotal,
-      perTool: data.perTool,
-      burnRate: data.burnRate,
-      burnRateCategory: data.burnRateCategory,
-      activeSessions: data.activeSessions,
-      costToday: data.costToday,
-      lastEventTimestamp: data.timestamp,
-      interpolatedTotal: data.todayTotal,
-      ...sessionUpdate,
+      const sessionUpdate = data.session
+        ? {
+            sessionTokens:   data.session.sessionTokens   > 0 ? data.session.sessionTokens   : prev.sessionTokens,
+            sessionCost:     data.session.sessionCost     > 0 ? data.session.sessionCost     : prev.sessionCost,
+            sessionMessages: data.session.sessionMessages > 0 ? data.session.sessionMessages : prev.sessionMessages,
+            sessionStart:    data.session.sessionStart    ?? prev.sessionStart,
+            sessionReset:    data.session.sessionReset    ?? prev.sessionReset,
+            burnRatePerMin:  data.session.burnRatePerMin  > 0 ? data.session.burnRatePerMin  : prev.burnRatePerMin,
+            costRatePerMin:  data.session.costRatePerMin  > 0 ? data.session.costRatePerMin  : prev.costRatePerMin,
+            tokensExhaustAt: data.session.tokensExhaustAt ?? prev.tokensExhaustAt,
+            tokenLimit:      data.session.tokenLimit      > 0 ? data.session.tokenLimit      : prev.tokenLimit,
+            planType:        data.session.planType        ?? prev.planType,
+          }
+        : {};
+
+      return {
+        todayTotal,
+        perTool: data.perTool.length > 0 ? data.perTool : prev.perTool,
+        burnRate,
+        burnRateCategory: data.burnRateCategory,
+        activeSessions: data.activeSessions,
+        costToday,
+        lastEventTimestamp: data.timestamp,
+        interpolatedTotal: todayTotal,
+        ...sessionUpdate,
+      };
     });
   },
 

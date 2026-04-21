@@ -13,16 +13,108 @@ from dynaconf import Dynaconf
 TOKENLENS_DIR = Path.home() / ".tokenlens"
 CONFIG_PATH = TOKENLENS_DIR / "config.toml"
 
+DEFAULT_CONFIG_TEMPLATE = """\
+[general]
+user_id = "default"
+data_dir = "~/.tokenlens"
 
-def _ensure_valid_config() -> None:
-    """Check config.toml is readable UTF-8; if not, back it up and recreate it.
+[daemon]
+batch_write_interval_seconds = 2
+full_scan_interval_minutes = 5
+session_gap_minutes = 15
 
-    A corrupted (non-UTF-8) config file causes dynaconf to raise a
-    ``UnicodeDecodeError`` at import time.  We detect that condition early,
-    rename the bad file to ``config.toml.bak.<timestamp>`` so it isn't lost,
-    and write a fresh default so the process can continue.
+[adapters.claude_code]
+enabled = true
+log_path = "~/.claude/projects"
+session_gap_minutes = 15
+
+[adapters.kiro]
+enabled = false
+log_path = "~/.kiro"
+session_gap_minutes = 15
+estimation_model = "cl100k_base"
+
+[pricing.models]
+# Per-model pricing in USD per million tokens.
+# Source: https://www.anthropic.com/pricing
+# cache_creation = 5-min cache write rate. cache_read = cache hit rate.
+
+# Claude Sonnet 4.x — Best Balance ($3/$15 per million)
+"claude-sonnet-4"    = { input = 3.0,  output = 15.0, cache_creation = 3.75,  cache_read = 0.30 }
+"claude-sonnet-4-5"  = { input = 3.0,  output = 15.0, cache_creation = 3.75,  cache_read = 0.30 }
+"claude-sonnet-4-6"  = { input = 3.0,  output = 15.0, cache_creation = 3.75,  cache_read = 0.30 }
+
+# Claude Opus 4.x — Top Capability
+"claude-opus-4"      = { input = 15.0, output = 75.0, cache_creation = 18.75, cache_read = 1.50 }
+"claude-opus-4-1"    = { input = 15.0, output = 75.0, cache_creation = 18.75, cache_read = 1.50 }
+"claude-opus-4-5"    = { input = 5.0,  output = 25.0, cache_creation = 6.25,  cache_read = 0.50 }
+"claude-opus-4-6"    = { input = 5.0,  output = 25.0, cache_creation = 6.25,  cache_read = 0.50 }
+"claude-opus-4-7"    = { input = 5.0,  output = 25.0, cache_creation = 6.25,  cache_read = 0.50 }
+
+# Claude Haiku — Fastest/Cheapest
+"claude-haiku-3"     = { input = 0.25, output = 1.25, cache_creation = 0.30,  cache_read = 0.03 }
+"claude-haiku-3.5"   = { input = 0.80, output = 4.0,  cache_creation = 1.0,   cache_read = 0.08 }
+"claude-haiku-4-5"   = { input = 1.0,  output = 5.0,  cache_creation = 1.25,  cache_read = 0.10 }
+
+# Claude 3.x Legacy
+"claude-sonnet-3-7"  = { input = 3.0,  output = 15.0, cache_creation = 3.75,  cache_read = 0.30 }
+"claude-3-5-sonnet"  = { input = 3.0,  output = 15.0, cache_creation = 3.75,  cache_read = 0.30 }
+"claude-3-5-haiku"   = { input = 0.80, output = 4.0,  cache_creation = 1.0,   cache_read = 0.08 }
+"claude-3-opus"      = { input = 15.0, output = 75.0, cache_creation = 18.75, cache_read = 1.50 }
+
+# Kiro
+"kiro-auto"          = { input = 3.0,  output = 15.0 }
+
+[api]
+host = "127.0.0.1"
+port = 7890
+cors_origins = ["http://localhost:5173", "http://localhost:7890"]
+
+[alerts]
+enabled = true
+desktop_notifications = true
+
+[alerts.thresholds]
+daily_token_limit = 33000
+monthly_cost_budget = 18.0
+warning_percentages = [50, 75, 90, 100]
+
+[alerts.webhooks]
+# slack_url = "https://hooks.slack.com/..."
+# discord_url = "https://discord.com/api/webhooks/..."
+
+# [plan]
+# type = "custom"  # "pro" | "max5" | "max20" | "custom"
+# custom_token_limit = 500000
+# custom_cost_limit = 50.0
+[plan]
+type = "pro"
+
+[ml]
+enabled = true
+
+[ml.anomaly]
+threshold = -0.3
+input_heavy_classification = "Large context loading"
+extended_conversation_turns = 30
+usage_burst_multiplier = 3.0
+
+[integrations.kiro]
+enabled = false
+steering_update_interval_minutes = 30
+"""
+
+
+def _repair_config() -> None:
+    """Ensure config.toml exists and is valid UTF-8.
+
+    If the file is missing or contains invalid bytes (e.g. due to corruption
+    or an accidental write in a non-UTF-8 encoding), back it up with a
+    timestamp suffix and recreate it from the default template.
     """
     if not CONFIG_PATH.exists():
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_PATH.write_text(DEFAULT_CONFIG_TEMPLATE, encoding="utf-8")
         return
     try:
         CONFIG_PATH.read_text(encoding="utf-8")
@@ -30,16 +122,11 @@ def _ensure_valid_config() -> None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup = CONFIG_PATH.with_name(f"config.toml.bak.{timestamp}")
         shutil.move(str(CONFIG_PATH), str(backup))
-        # Write a minimal valid config so dynaconf can load cleanly.
-        # The full DEFAULT_CONFIG_TEMPLATE is written by the CLI init command.
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(
-            '[general]\nuser_id = "default"\ndata_dir = "~/.tokenlens"\n',
-            encoding="utf-8",
-        )
+        CONFIG_PATH.write_text(DEFAULT_CONFIG_TEMPLATE, encoding="utf-8")
 
 
-_ensure_valid_config()
+# Repair before Dynaconf tries to load the file
+_repair_config()
 
 settings = Dynaconf(
     envvar_prefix="TOKENLENS",
@@ -82,9 +169,9 @@ def ensure_dirs() -> None:
 # ---------------------------------------------------------------------------
 
 PLAN_LIMITS: dict[str, dict[str, float]] = {
-    "pro": {"daily_tokens": 19_000, "monthly_cost": 18.00, "message_limit": 250},
-    "max5": {"daily_tokens": 88_000, "monthly_cost": 35.00, "message_limit": 1000},
-    "max20": {"daily_tokens": 220_000, "monthly_cost": 140.00, "message_limit": 2000},
+    "pro":   {"daily_tokens": 33_000,   "monthly_cost": 18.00,  "message_limit": 45},
+    "max5":  {"daily_tokens": 220_000,  "monthly_cost": 35.00,  "message_limit": 225},
+    "max20": {"daily_tokens": 880_000,  "monthly_cost": 140.00, "message_limit": 900},
 }
 
 
@@ -174,77 +261,9 @@ def detect_plan_limit_p90(session_totals: list[int]) -> int:
     # Snap to nearest known plan limit if within 5%
     known_limits = [
         int(v["daily_tokens"]) for v in PLAN_LIMITS.values()
-    ]  # [19000, 88000, 220000]
+    ]  # [33000, 220000, 880000]
     for limit in known_limits:
         if abs(p90 - limit) / limit <= 0.05:
             return limit
 
     return int(round(p90))
-
-
-DEFAULT_CONFIG_TEMPLATE = """\
-[general]
-user_id = "default"
-data_dir = "~/.tokenlens"
-
-[daemon]
-batch_write_interval_seconds = 2
-full_scan_interval_minutes = 5
-session_gap_minutes = 15
-
-[adapters.claude_code]
-enabled = true
-log_path = "~/.claude/projects"
-session_gap_minutes = 15
-
-[adapters.kiro]
-enabled = false
-log_path = "~/.kiro"
-session_gap_minutes = 15
-estimation_model = "cl100k_base"
-
-[pricing.models]
-# Per-model pricing in USD per million tokens.
-# Optional cache_creation and cache_read fields override derived rates.
-# Default derived rates: cache_creation = input × 1.25, cache_read = input × 0.1
-"claude-sonnet-4"  = { input = 3.0,  output = 15.0, cache_creation = 3.75, cache_read = 0.30 }
-"claude-opus-4"    = { input = 15.0, output = 75.0, cache_creation = 18.75, cache_read = 1.50 }
-"claude-haiku-3.5" = { input = 0.80, output = 4.0, cache_creation = 1.0, cache_read = 0.08 }
-"kiro-auto"        = { input = 3.0,  output = 15.0 }
-
-[api]
-host = "127.0.0.1"
-port = 7890
-cors_origins = ["http://localhost:5173", "http://localhost:7890"]
-
-[alerts]
-enabled = true
-desktop_notifications = true
-
-[alerts.thresholds]
-daily_token_limit = 500000
-monthly_cost_budget = 50.0
-warning_percentages = [50, 75, 90, 100]
-
-[alerts.webhooks]
-# slack_url = "https://hooks.slack.com/..."
-# discord_url = "https://discord.com/api/webhooks/..."
-
-# [plan]
-# type = "custom"  # "pro" | "max5" | "max20" | "custom"
-# custom_token_limit = 500000
-# custom_cost_limit = 50.0
-
-[ml]
-enabled = true
-
-[ml.anomaly]
-threshold = -0.3
-input_heavy_classification = "Large context loading"
-extended_conversation_turns = 30
-usage_burst_multiplier = 3.0
-
-[integrations.kiro]
-enabled = false
-steering_update_interval_minutes = 30
-"""

@@ -26,9 +26,9 @@ interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
-  dailyTokenLimit: 500000,
-  monthlyCostBudget: 50,
-  planType: "custom",
+  dailyTokenLimit: 33000,
+  monthlyCostBudget: 18,
+  planType: "pro",
   adapters: [],
   alertThresholds: [50, 75, 90, 100],
   webhooks: [],
@@ -51,10 +51,18 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
         const s = data?.settings ?? data;
         const overrides = s?._overrides ?? {};
         const alerts = s?.alerts?.thresholds ?? {};
+        const rawPlan = overrides["plan.type"] || s?.plan?.type || "pro";
+        const planDefaults: Record<string, { tokens: number; cost: number }> = {
+          pro:    { tokens: 33000,   cost: 18 },
+          max5:   { tokens: 220000,  cost: 35 },
+          max20:  { tokens: 880000,  cost: 140 },
+          custom: { tokens: 500000,  cost: 50 },
+        };
+        const pd = planDefaults[rawPlan] ?? planDefaults.pro;
         set({
-          dailyTokenLimit: Number(overrides["alerts.thresholds.daily_token_limit"]) || alerts?.daily_token_limit || data.daily_token_limit || 500000,
-          monthlyCostBudget: Number(overrides["alerts.thresholds.monthly_cost_budget"]) || alerts?.monthly_cost_budget || data.monthly_cost_budget || 50,
-          planType: overrides["plan.type"] || "custom",
+          dailyTokenLimit: Number(overrides["alerts.thresholds.daily_token_limit"]) || alerts?.daily_token_limit || data.daily_token_limit || pd.tokens,
+          monthlyCostBudget: Number(overrides["alerts.thresholds.monthly_cost_budget"]) || alerts?.monthly_cost_budget || data.monthly_cost_budget || pd.cost,
+          planType: rawPlan,
           adapters: data.adapters ?? [],
           alertThresholds: data.alert_thresholds ?? [50, 75, 90, 100],
           webhooks: data.webhooks ?? [],

@@ -44,9 +44,9 @@ export function SettingsPage() {
   }, [settings.dailyTokenLimit, settings.monthlyCostBudget, settings.alertThresholds, settings.planType]);
 
   useEffect(() => {
-    if (plan === "pro") { setDailyLimit(19000); setMonthlyBudget(18); }
-    else if (plan === "max5") { setDailyLimit(88000); setMonthlyBudget(35); }
-    else if (plan === "max20") { setDailyLimit(220000); setMonthlyBudget(140); }
+    if (plan === "pro") { setDailyLimit(33000); setMonthlyBudget(18); }
+    else if (plan === "max5") { setDailyLimit(220000); setMonthlyBudget(35); }
+    else if (plan === "max20") { setDailyLimit(880000); setMonthlyBudget(140); }
   }, [plan]);
 
   const saveMutation = useMutation({
