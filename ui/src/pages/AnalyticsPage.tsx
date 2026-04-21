@@ -11,41 +11,44 @@ import { apiFetch } from "@/lib/api";
 
 /** Unwrap API response: bare array or {data: [...]} or {sessions: [...]}. */
 function unwrap(raw: unknown, key = "data"): unknown[] {
-  if (Array.isArray(raw)) return raw;
-  if (raw && typeof raw === "object" && key in raw) {
-    const val = (raw as Record<string, unknown>)[key];
-    return Array.isArray(val) ? val : [];
-  }
-  return [];
+if (Array.isArray(raw)) return raw;
+if (raw && typeof raw === "object" && key in raw) {
+const val = (raw as Record<string, unknown>)[key];
+return Array.isArray(val) ? val : [];
+}
+return [];
 }
 
 export function AnalyticsPage() {
-  const [period, setPeriod] = useState<TimePeriod>("24h");
+const [period, setPeriod] = useState<TimePeriod>("24h");
 
-  const timeline = useQuery({
-    queryKey: ["analytics", "timeline", period],
-    queryFn: () => apiFetch<unknown>(`/analytics/timeline?period=${period}`),
-  });
+const timeline = useQuery({
+queryKey: ["analytics", "timeline", period],
+queryFn: () => apiFetch<unknown>(`/analytics/timeline?period=${period}`),
+});
 
-  const tools = useQuery({
-    queryKey: ["analytics", "tools", period],
-    queryFn: () => apiFetch<unknown>(`/analytics/tools?period=${period}`),
-  });
+const tools = useQuery({
+queryKey: ["analytics", "tools", period],
+queryFn: () => apiFetch<unknown>(`/analytics/tools?period=${period}`),
+});
 
-  const models = useQuery({
-    queryKey: ["analytics", "models", period],
-    queryFn: () => apiFetch<unknown>(`/analytics/models?period=${period}`),
-  });
+const models = useQuery({
+queryKey: ["analytics", "models", period],
+queryFn: () => apiFetch<unknown>(`/analytics/models?period=${period}`),
+});
 
-  const heatmap = useQuery({
-    queryKey: ["analytics", "heatmap"],
-    queryFn: () => apiFetch<unknown>("/analytics/heatmap"),
-  });
+const heatmap = useQuery({
+queryKey: ["analytics", "heatmap"],
+queryFn: () => {
+const tzOffset = -(new Date().getTimezoneOffset()); // Convert JS offset (minutes behind UTC) to minutes ahead of UTC
+return apiFetch<unknown>(`/analytics/heatmap?tz_offset_minutes=${tzOffset}`);
+},
+});
 
-  const sessions = useQuery({
-    queryKey: ["sessions", period],
-    queryFn: () => apiFetch<unknown>(`/sessions?period=${period}`),
-  });
+const sessions = useQuery({
+queryKey: ["sessions", period],
+queryFn: () => apiFetch<unknown>(`/sessions?period=${period}`),
+});
 
   return (
     <div className="space-y-6">

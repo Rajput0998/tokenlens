@@ -8,6 +8,7 @@ import { useMLStore } from "@/stores/useMLStore";
 import { apiFetch } from "@/lib/api";
 import { useEffect } from "react";
 import { InfoTooltip } from "@/components/home/InfoTooltip";
+import { formatLocalTime } from "@/lib/dateUtils";
 
 /** Unwrap forecast data: API returns {forecast: [...]} not {data: [...]} */
 function unwrapForecast(raw: unknown): unknown[] {
@@ -59,7 +60,7 @@ export function InsightsPage() {
   const estimatedTime = limitData?.estimated_time as string | undefined;
   const limitValue = willHitLimit
     ? estimatedTime
-      ? new Date(estimatedTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      ? formatLocalTime(estimatedTime, "Today")
       : "Today"
     : "None";
 

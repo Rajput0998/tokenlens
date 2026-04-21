@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 T = TypeVar("T")
+
+
+def _ensure_utc(v: datetime | None) -> datetime | None:
+    """Tag naive datetimes as UTC (SQLite returns tz-naive datetimes)."""
+    if v is not None and v.tzinfo is None:
+        return v.replace(tzinfo=UTC)
+    return v
 
 
 # --- Pagination ---
@@ -63,6 +70,8 @@ class TokenEventResponse(BaseModel):
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
 
+    _utc_timestamp = field_validator("timestamp", mode="before")(_ensure_utc)
+
     model_config = {"from_attributes": True}
 
 
@@ -80,6 +89,9 @@ class SessionResponse(BaseModel):
     turn_count: int
     efficiency_score: float | None = None
 
+    _utc_start = field_validator("start_time", mode="before")(_ensure_utc)
+    _utc_end = field_validator("end_time", mode="before")(_ensure_utc)
+
     model_config = {"from_attributes": True}
 
 
@@ -96,6 +108,8 @@ class TimelinePoint(BaseModel):
     cost: float
     tool: str | None = None
     model: str | None = None
+
+    _utc_timestamp = field_validator("timestamp", mode="before")(_ensure_utc)
 
 
 class HeatmapCell(BaseModel):
@@ -143,6 +157,8 @@ class LimitPrediction(BaseModel):
     current_usage: int = 0
     daily_limit: int = 0
 
+    _utc_estimated = field_validator("estimated_time", mode="before")(_ensure_utc)
+
 
 class BudgetProjection(BaseModel):
     projected_monthly_cost: float
@@ -179,6 +195,9 @@ class SessionEfficiency(BaseModel):
     turn_count: int
     total_tokens: int
 
+    _utc_start = field_validator("start_time", mode="before")(_ensure_utc)
+    _utc_end = field_validator("end_time", mode="before")(_ensure_utc)
+
 
 class Recommendation(BaseModel):
     message: str
@@ -189,6 +208,8 @@ class EfficiencyTrend(BaseModel):
     date: datetime
     avg_score: float
     session_count: int
+
+    _utc_date = field_validator("date", mode="before")(_ensure_utc)
 
 
 # --- Anomalies ---
@@ -201,6 +222,8 @@ class AnomalyResponse(BaseModel):
     classification: str
     description: str
     score: float
+
+    _utc_timestamp = field_validator("timestamp", mode="before")(_ensure_utc)
 
     model_config = {"from_attributes": True}
 

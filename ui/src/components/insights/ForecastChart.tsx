@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { InfoTooltip } from "../home/InfoTooltip";
+import { formatLocalTime } from "@/lib/dateUtils";
 
 interface RawForecastPoint {
   hour?: string;
@@ -34,12 +35,7 @@ interface ForecastChartProps {
 }
 
 function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return iso.slice(11, 16);
-  }
+  return formatLocalTime(iso, iso.slice(11, 16));
 }
 
 function formatTokens(n: number): string {

@@ -83,6 +83,7 @@ async def get_heatmap(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     tool: str | None = None,
+    tz_offset_minutes: int = Query(default=0, description="Client timezone offset in minutes (e.g. 330 for IST, -300 for EST)"),
     session: AsyncSession = Depends(get_db_session),
 ):
     """24x7 heatmap of token usage by day-of-week and hour."""
@@ -106,11 +107,13 @@ async def get_heatmap(
     result = await session.execute(stmt)
     rows = result.all()
 
-    # Build 7x24 matrix
+    # Build 7x24 matrix, adjusting timestamps to client's local timezone
+    tz_delta = timedelta(minutes=tz_offset_minutes)
     matrix: dict[tuple[int, int], float] = {}
     for row in rows:
-        dow = row.timestamp.weekday()  # 0=Monday
-        hour = row.timestamp.hour
+        local_time = row.timestamp + tz_delta
+        dow = local_time.weekday()  # 0=Monday
+        hour = local_time.hour
         key = (dow, hour)
         matrix[key] = matrix.get(key, 0) + int(row.tokens)
 

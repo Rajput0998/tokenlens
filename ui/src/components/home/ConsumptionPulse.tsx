@@ -2,18 +2,14 @@ import { useTokenStore } from "@/stores/useTokenStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { InfoTooltip } from "./InfoTooltip";
 import { Flame, DollarSign, Target, Zap, CalendarClock } from "lucide-react";
+import { formatLocalTime } from "@/lib/dateUtils";
 
 interface ConsumptionPulseProps {
   readonly loading?: boolean;
 }
 
 function formatTime(isoOrNull: string | null, fallbackLabel: string): string {
-  if (!isoOrNull) return fallbackLabel;
-  try {
-    return new Date(isoOrNull).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return fallbackLabel;
-  }
+  return formatLocalTime(isoOrNull, fallbackLabel);
 }
 
 export function ConsumptionPulse({ loading }: ConsumptionPulseProps) {

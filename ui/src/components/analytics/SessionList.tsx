@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { InfoTooltip } from "../home/InfoTooltip";
+import { formatLocalDateTime } from "@/lib/dateUtils";
 
 export interface SessionTurn {
   turnNumber: number;
@@ -47,7 +48,7 @@ function SessionRow({ session }: { session: SessionData }) {
         </td>
         <td className="px-3 py-2 text-sm font-mono">{session.id.slice(0, 8)}</td>
         <td className="px-3 py-2 text-sm">{session.tool}</td>
-        <td className="px-3 py-2 text-sm">{session.startTime}</td>
+        <td className="px-3 py-2 text-sm">{formatLocalDateTime(session.startTime)}</td>
         <td className="px-3 py-2 text-sm">{session.duration}</td>
         <td className="px-3 py-2 text-sm tabular-nums">
           {session.totalTokens.toLocaleString()}

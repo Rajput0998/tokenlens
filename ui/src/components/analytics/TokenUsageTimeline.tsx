@@ -35,10 +35,16 @@ interface TokenUsageTimelineProps {
   error?: string | null;
 }
 
+/** Ensure ISO string is parsed as UTC by appending Z if no timezone is present */
+function toUtcDate(iso: string): Date {
+  // If the string has no timezone indicator (no Z, no +, no -offset after time part), treat as UTC
+  const hasTimezone = /[Z+\-]\d*$/.test(iso.trim()) || iso.endsWith("Z");
+  return new Date(hasTimezone ? iso : iso + "Z");
+}
+
 function formatTime(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return toUtcDate(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch {
     return iso.slice(11, 16);
   }
@@ -50,12 +56,22 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-/** Aggregate raw events into hourly buckets */
+/** Build a local-hour key like "2026-04-21T11" from a UTC ISO string */
+function localHourKey(iso: string): string {
+  const d = toUtcDate(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  return `${y}-${m}-${day}T${h}`;
+}
+
+/** Aggregate raw events into hourly buckets using local time */
 function aggregateByHour(data: RawDataPoint[]): AggregatedPoint[] {
   const buckets = new Map<string, { tokens: number; cost: number; rawTime: string }>();
 
   for (const d of data) {
-    const hourKey = d.timestamp.slice(0, 13); // "2026-04-19T08"
+    const hourKey = localHourKey(d.timestamp);
     const existing = buckets.get(hourKey);
     if (existing) {
       existing.tokens += d.tokens;

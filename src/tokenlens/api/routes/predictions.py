@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -238,6 +238,7 @@ async def what_if(
 
 @router.get("/profile")
 async def get_profile(
+    tz_offset_minutes: int = Query(default=0, description="Client timezone offset in minutes (e.g. 330 for IST, -300 for EST)"),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get behavioral profile (archetype)."""
@@ -255,10 +256,12 @@ async def get_profile(
     if not rows:
         return {"archetype": "Unknown", "reason": "Insufficient data"}
 
-    # Determine peak hour
+    # Determine peak hour in client's local timezone
+    tz_delta = timedelta(minutes=tz_offset_minutes)
     hour_totals: dict[int, int] = {}
     for row in rows:
-        h = row.timestamp.hour
+        local_time = row.timestamp + tz_delta
+        h = local_time.hour
         hour_totals[h] = hour_totals.get(h, 0) + int(row.tokens)
 
     peak_hour = max(hour_totals, key=hour_totals.get) if hour_totals else 12

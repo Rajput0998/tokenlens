@@ -82,7 +82,8 @@ export const useMLStore = create<MLStore>((set) => ({
 
   loadProfile: async () => {
     try {
-      const res = await fetch("/api/v1/predictions/profile");
+      const tzOffset = -(new Date().getTimezoneOffset());
+      const res = await fetch(`/api/v1/predictions/profile?tz_offset_minutes=${tzOffset}`);
       if (res.ok) {
         const data = await res.json();
         set({

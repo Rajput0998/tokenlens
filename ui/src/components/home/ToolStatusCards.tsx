@@ -19,19 +19,33 @@ function ToolCard({ tool }: { tool: PerToolUsage }) {
   const hasHourlyData = tool.hourly && tool.hourly.length > 0;
   const currentHour = new Date().getHours();
 
-  // Build chart data: show hours 0 to current hour
+  // Backend sends hourly buckets in UTC hours (0-23).
+  // Convert to local hours before filtering and display.
+  const tzOffsetHours = -(new Date().getTimezoneOffset()) / 60;
+
+  // Build chart data: convert UTC hour → local, filter up to current local hour
   const chartData = hasHourlyData
     ? tool.hourly
+        .map((h) => ({
+          hour: (h.hour + tzOffsetHours + 24) % 24,
+          tokens: h.tokens,
+        }))
         .filter((h) => h.hour <= currentHour)
+        .sort((a, b) => a.hour - b.hour)
         .map((h) => ({
           hour: `${h.hour}:00`,
           tokens: h.tokens,
         }))
     : [];
 
-  // Calculate peak hour
+  // Calculate peak hour in local time
   const peakHour = hasHourlyData
-    ? tool.hourly.reduce((max, h) => (h.tokens > max.tokens ? h : max), { hour: 0, tokens: 0 })
+    ? tool.hourly
+        .map((h) => ({
+          hour: (h.hour + tzOffsetHours + 24) % 24,
+          tokens: h.tokens,
+        }))
+        .reduce((max, h) => (h.tokens > max.tokens ? h : max), { hour: 0, tokens: 0 })
     : null;
 
   // Calculate average tokens per active hour
