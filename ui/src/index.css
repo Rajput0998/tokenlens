@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ===== LIGHT THEME ===== */
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 220 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 40% 10%;
+    --primary: 168 80% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 94%;
+    --secondary-foreground: 220 40% 10%;
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 10% 46%;
+    --accent: 168 80% 30%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 90%;
+    --input: 220 15% 94%;
+    --ring: 168 80% 30%;
+    --radius: 0.75rem;
+
+    /* Custom accent palette */
+    --teal: #0d9488;
+    --teal-dim: rgba(13,148,136,0.08);
+    --blue: #2563eb;
+    --blue-dim: rgba(37,99,235,0.08);
+    --purple: #7c3aed;
+    --orange: #d97706;
+    --orange-dim: rgba(217,119,6,0.08);
+    --red: #dc2626;
+    --red-dim: rgba(220,38,38,0.06);
+    --green: #16a34a;
+    --green-dim: rgba(22,163,74,0.08);
+
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-border: 220 15% 90%;
+    --sidebar-active: 168 80% 30%;
+    --sidebar-active-bg: rgba(13,148,136,0.06);
+
+    --gradient-primary: linear-gradient(135deg, #0d9488, #2563eb);
+    --gradient-warm: linear-gradient(135deg, #d97706, #dc2626);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px hsl(var(--border));
+    --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.08), 0 0 0 1px hsl(var(--border));
+  }
+
+  /* ===== DARK THEME ===== */
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 213 31% 94%;
+    --card: 222 47% 10%;
+    --card-foreground: 213 31% 94%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 213 31% 94%;
+    --primary: 168 80% 42%;
+    --primary-foreground: 222 47% 7%;
+    --secondary: 217 33% 15%;
+    --secondary-foreground: 213 31% 94%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 60%;
+    --accent: 168 80% 42%;
+    --accent-foreground: 222 47% 7%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 94%;
+    --border: 217 33% 18%;
+    --input: 217 33% 15%;
+    --ring: 168 80% 42%;
+
+    --teal: #00d4aa;
+    --teal-dim: rgba(0,212,170,0.12);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --purple: #a78bfa;
+    --orange: #f59e0b;
+    --orange-dim: rgba(245,158,11,0.12);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.12);
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,0.12);
+
+    --sidebar-bg: 222 47% 8%;
+    --sidebar-border: 217 33% 15%;
+    --sidebar-active: 168 80% 42%;
+    --sidebar-active-bg: rgba(0,212,170,0.08);
+
+    --gradient-primary: linear-gradient(135deg, #00d4aa, #3b82f6);
+    --gradient-warm: linear-gradient(135deg, #f59e0b, #ef4444);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px hsl(var(--border));
+    --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--border));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-warm {
+    background: var(--gradient-warm);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-card-hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .bg-teal-dim { background-color: var(--teal-dim); }
+  .bg-blue-dim { background-color: var(--blue-dim); }
+  .bg-orange-dim { background-color: var(--orange-dim); }
+  .bg-red-dim { background-color: var(--red-dim); }
+  .bg-green-dim { background-color: var(--green-dim); }
+  .text-teal { color: var(--teal); }
+  .text-accent-blue { color: var(--blue); }
+  .text-accent-purple { color: var(--purple); }
+  .text-accent-orange { color: var(--orange); }
+  .text-accent-red { color: var(--red); }
+  .text-accent-green { color: var(--green); }
+}

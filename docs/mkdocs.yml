@@ -1,0 +1,59 @@
+site_name: TokenLens
+site_description: Universal AI token monitoring and prediction platform
+site_url: https://tokenlens.github.io/tokenlens/
+repo_url: https://github.com/tokenlens/tokenlens
+repo_name: tokenlens/tokenlens
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quick Start: getting-started.md
+      - Configuration: configuration.md
+  - Adapters:
+      - Claude Code: adapters/claude-code.md
+      - Kiro: adapters/kiro.md
+      - Developing Adapters: adapters/developing.md
+  - CLI Reference: cli.md
+  - API: api.md
+  - ML Intelligence: ml.md
+  - Dashboard: dashboard.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+plugins:
+  - search

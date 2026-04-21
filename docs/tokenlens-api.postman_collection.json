@@ -1,0 +1,544 @@
+{
+  "info": {
+    "name": "TokenLens API",
+    "description": "Complete API collection for TokenLens — Universal AI token monitoring and prediction platform for coding tools.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "tokenlens-api-v1"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:7890",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Status & Health",
+      "description": "Health check and current usage status endpoints.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Returns basic health status and version. Used by Docker healthcheck and monitoring."
+          },
+          "response": []
+        },
+        {
+          "name": "Status — Today's Usage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "status"]
+            },
+            "description": "Returns today's token usage summary: total tokens, per-tool breakdown, active sessions, burn rate, cost, and daemon health."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "description": "Token event listing with pagination, filtering, and sorting.",
+      "item": [
+        {
+          "name": "List Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/events?page=1&per_page=50&sort_by=timestamp&sort_order=desc",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "events"],
+              "query": [
+                { "key": "tool", "value": "claude_code", "description": "Filter by tool (claude_code, kiro)", "disabled": true },
+                { "key": "model", "value": "claude-sonnet-4", "description": "Filter by model name", "disabled": true },
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "ISO datetime lower bound", "disabled": true },
+                { "key": "date_to", "value": "2025-12-31T23:59:59Z", "description": "ISO datetime upper bound", "disabled": true },
+                { "key": "session_id", "value": "", "description": "Filter by session UUID", "disabled": true },
+                { "key": "page", "value": "1", "description": "Page number (≥1)" },
+                { "key": "per_page", "value": "50", "description": "Items per page (1-200)" },
+                { "key": "sort_by", "value": "timestamp", "description": "Sort column: timestamp, tool, model, input_tokens, output_tokens, cost_usd, session_id" },
+                { "key": "sort_order", "value": "desc", "description": "Sort direction: asc or desc" }
+              ]
+            },
+            "description": "List token events with pagination and filtering. Returns paginated response with data array and meta (page, per_page, total, total_pages)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "description": "Session listing and detail with associated events.",
+      "item": [
+        {
+          "name": "List Sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions?page=1&per_page=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sessions"],
+              "query": [
+                { "key": "tool", "value": "claude_code", "description": "Filter by tool", "disabled": true },
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Filter sessions starting after this date", "disabled": true },
+                { "key": "date_to", "value": "2025-12-31T23:59:59Z", "description": "Filter sessions ending before this date", "disabled": true },
+                { "key": "page", "value": "1", "description": "Page number (≥1)" },
+                { "key": "per_page", "value": "50", "description": "Items per page (1-200)" }
+              ]
+            },
+            "description": "List sessions with pagination and filtering. Sessions are aggregated from token events grouped by session_gap_minutes (default 15 min)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/:session_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sessions", ":session_id"],
+              "variable": [
+                { "key": "session_id", "value": "uuid-here", "description": "Session UUID" }
+              ]
+            },
+            "description": "Get session detail including all associated token events. Returns 404 if session not found."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "description": "Aggregated analytics: timeline, heatmap, tool comparison, model breakdown, summary.",
+      "item": [
+        {
+          "name": "Timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics/timeline?period=1h",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "analytics", "timeline"],
+              "query": [
+                { "key": "period", "value": "1h", "description": "Aggregation period: 1h, 1d, or 1w" },
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Start date", "disabled": true },
+                { "key": "date_to", "value": "2025-01-31T23:59:59Z", "description": "End date", "disabled": true },
+                { "key": "tool", "value": "claude_code", "description": "Filter by tool", "disabled": true },
+                { "key": "model", "value": "claude-sonnet-4", "description": "Filter by model", "disabled": true }
+              ]
+            },
+            "description": "Token usage timeline aggregated by period. Returns array of TimelinePoint objects with timestamp, tokens, cost, tool, and model."
+          },
+          "response": []
+        },
+        {
+          "name": "Heatmap",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics/heatmap",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "analytics", "heatmap"],
+              "query": [
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Start date", "disabled": true },
+                { "key": "date_to", "value": "2025-01-31T23:59:59Z", "description": "End date", "disabled": true },
+                { "key": "tool", "value": "claude_code", "description": "Filter by tool", "disabled": true }
+              ]
+            },
+            "description": "24×7 heatmap of token usage by day-of-week (0=Monday) and hour (0-23). Returns array of HeatmapCell objects."
+          },
+          "response": []
+        },
+        {
+          "name": "Tools Comparison",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics/tools",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "analytics", "tools"],
+              "query": [
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Start date", "disabled": true },
+                { "key": "date_to", "value": "2025-01-31T23:59:59Z", "description": "End date", "disabled": true }
+              ]
+            },
+            "description": "Per-tool comparison stats: total tokens, total cost, session count, average efficiency."
+          },
+          "response": []
+        },
+        {
+          "name": "Models Breakdown",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics/models",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "analytics", "models"],
+              "query": [
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Start date", "disabled": true },
+                { "key": "date_to", "value": "2025-01-31T23:59:59Z", "description": "End date", "disabled": true }
+              ]
+            },
+            "description": "Per-model breakdown: total tokens, total cost, event count for each model used."
+          },
+          "response": []
+        },
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics/summary",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "analytics", "summary"]
+            },
+            "description": "Summary stats for today, this week, this month, and all time. Each period includes tokens, cost, events, and sessions."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Predictions",
+      "description": "ML-powered predictions: burn rate forecast, limit prediction, budget projection, what-if simulation, behavioral profile.",
+      "item": [
+        {
+          "name": "Burn Rate Forecast",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/predictions/burnrate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "predictions", "burnrate"],
+              "query": [
+                { "key": "tool", "value": "claude_code", "description": "Filter forecast by tool", "disabled": true }
+              ]
+            },
+            "description": "Get burn rate forecast for next 24 hours. Uses linear extrapolation (1-6 days), ExponentialSmoothing (7+ days), or Prophet (if installed). Returns status='collecting_data' if insufficient data."
+          },
+          "response": []
+        },
+        {
+          "name": "Limit Prediction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/predictions/limit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "predictions", "limit"]
+            },
+            "description": "Predict if daily token limit will be hit. Returns will_hit_limit boolean, estimated_time (when limit will be reached), current_usage, and daily_limit."
+          },
+          "response": []
+        },
+        {
+          "name": "Budget Projection",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/predictions/budget",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "predictions", "budget"]
+            },
+            "description": "Project monthly cost from current usage. Returns projected_monthly_cost, daily_cost, daily_tokens, monthly_budget, is_over_budget, and recommended_daily_spend."
+          },
+          "response": []
+        },
+        {
+          "name": "Behavioral Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/predictions/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "predictions", "profile"]
+            },
+            "description": "Get behavioral profile (archetype). Classifies usage into Morning Sprinter, Steady Coder, or Night Owl based on peak activity hours."
+          },
+          "response": []
+        },
+        {
+          "name": "What-If Simulation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"context_size\": 1.5,\n  \"model_switch\": \"claude-haiku-3.5\",\n  \"usage_pct_change\": -0.2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/predictions/whatif",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "predictions", "whatif"]
+            },
+            "description": "What-if scenario simulation. Provide context_size (multiplier, e.g. 1.5 = 50% more context), model_switch (target model name), and/or usage_pct_change (e.g. -0.2 = 20% less usage). Returns baseline vs projected monthly cost."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Efficiency",
+      "description": "Session efficiency scoring, recommendations, and trends.",
+      "item": [
+        {
+          "name": "Efficiency Sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/efficiency/sessions?page=1&per_page=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "efficiency", "sessions"],
+              "query": [
+                { "key": "tool", "value": "claude_code", "description": "Filter by tool", "disabled": true },
+                { "key": "min_score", "value": "0", "description": "Minimum efficiency score", "disabled": true },
+                { "key": "max_score", "value": "100", "description": "Maximum efficiency score", "disabled": true },
+                { "key": "page", "value": "1", "description": "Page number" },
+                { "key": "per_page", "value": "50", "description": "Items per page" }
+              ]
+            },
+            "description": "List sessions with efficiency scores. Scores are 0-100 based on output/input ratio, cache hit rate, turns to completion, context growth, and cost per output token."
+          },
+          "response": []
+        },
+        {
+          "name": "Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/efficiency/recommendations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "efficiency", "recommendations"]
+            },
+            "description": "Get top efficiency recommendations based on recent sessions. Returns actionable suggestions to reduce token waste."
+          },
+          "response": []
+        },
+        {
+          "name": "Efficiency Trends",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/efficiency/trends",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "efficiency", "trends"],
+              "query": [
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Start date", "disabled": true },
+                { "key": "date_to", "value": "2025-01-31T23:59:59Z", "description": "End date", "disabled": true },
+                { "key": "tool", "value": "claude_code", "description": "Filter by tool", "disabled": true }
+              ]
+            },
+            "description": "Efficiency score trends over time. Returns daily average scores and session counts."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Anomalies",
+      "description": "Detected anomalies from IsolationForest ML model.",
+      "item": [
+        {
+          "name": "List Anomalies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/anomalies?page=1&per_page=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "anomalies"],
+              "query": [
+                { "key": "severity", "value": "critical", "description": "Filter: warning or critical", "disabled": true },
+                { "key": "classification", "value": "Usage burst", "description": "Filter by classification type", "disabled": true },
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Start date", "disabled": true },
+                { "key": "date_to", "value": "2025-01-31T23:59:59Z", "description": "End date", "disabled": true },
+                { "key": "page", "value": "1", "description": "Page number" },
+                { "key": "per_page", "value": "50", "description": "Items per page" }
+              ]
+            },
+            "description": "List detected anomalies with filtering. Classifications: Large context loading, Extended conversation, Usage burst, Unclassified anomaly."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Anomaly Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/anomalies/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "anomalies", ":id"],
+              "variable": [
+                { "key": "id", "value": "uuid-here", "description": "Anomaly UUID" }
+              ]
+            },
+            "description": "Get anomaly detail with full metadata JSON. Returns 404 if anomaly not found."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "description": "Application settings: read merged config, update DB overrides, adapter status.",
+      "item": [
+        {
+          "name": "Get Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "settings"]
+            },
+            "description": "Get merged settings: config.toml base values + DB overrides. Returns general, daemon, alerts, ml, and api sections."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"alerts.thresholds.daily_token_limit\": 750000,\n    \"alerts.thresholds.monthly_cost_budget\": 75.0,\n    \"alerts.enabled\": true,\n    \"ml.enabled\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "settings"]
+            },
+            "description": "Write settings to DB (does NOT modify config.toml). Only allowlisted keys accepted: alerts.thresholds.daily_token_limit, alerts.thresholds.monthly_cost_budget, alerts.enabled, alerts.desktop_notifications, ml.enabled, integrations.kiro.enabled, integrations.kiro.steering_update_interval_minutes."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Adapter Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/settings/adapters",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "settings", "adapters"]
+            },
+            "description": "Get status of all registered adapters. Returns name, enabled flag, and availability (whether log files exist)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Export",
+      "description": "Data export: events as CSV/JSON, usage reports.",
+      "item": [
+        {
+          "name": "Export Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/export/events?format=json",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "export", "events"],
+              "query": [
+                { "key": "format", "value": "json", "description": "Export format: csv or json" },
+                { "key": "date_from", "value": "2025-01-01T00:00:00Z", "description": "Start date", "disabled": true },
+                { "key": "date_to", "value": "2025-01-31T23:59:59Z", "description": "End date", "disabled": true },
+                { "key": "tool", "value": "claude_code", "description": "Filter by tool", "disabled": true }
+              ]
+            },
+            "description": "Export events as a downloadable CSV or JSON file. Returns Content-Disposition header for file download."
+          },
+          "response": []
+        },
+        {
+          "name": "Export Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/export/report?period=today&format=json",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "export", "report"],
+              "query": [
+                { "key": "period", "value": "today", "description": "Report period: today, week, or month" },
+                { "key": "format", "value": "json", "description": "Output format: json, csv, or markdown" }
+              ]
+            },
+            "description": "Export usage report for a period. Includes total tokens, cost, events, and sessions. Supports JSON, CSV, and Markdown output."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "WebSocket",
+      "description": "WebSocket endpoints for real-time data. NOTE: Postman does not natively support WebSocket — use wscat or browser DevTools to test these.",
+      "item": [
+        {
+          "name": "WS Live Updates (notes)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ws/live",
+              "host": ["{{base_url}}"],
+              "path": ["ws", "live"]
+            },
+            "description": "WebSocket endpoint: ws://localhost:7890/ws/live\n\nPushes live usage data every 5 seconds:\n{\n  \"type\": \"live_update\",\n  \"data\": {\n    \"today_total\": 45231,\n    \"per_tool\": {\"claude_code\": 45231},\n    \"burn_rate\": \"moderate\",\n    \"active_sessions\": 2,\n    \"cost_today\": 0.45,\n    \"last_event_timestamp\": \"2025-01-15T10:30:00Z\"\n  }\n}\n\nAlso sends periodic {\"type\": \"ping\"} to keep connection alive.\n\nTest with: wscat -c ws://localhost:7890/ws/live"
+          },
+          "response": []
+        },
+        {
+          "name": "WS Alerts (notes)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ws/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["ws", "alerts"]
+            },
+            "description": "WebSocket endpoint: ws://localhost:7890/ws/alerts\n\nReceives alert broadcasts when thresholds are crossed:\n{\n  \"type\": \"alert\",\n  \"severity\": \"warning\",\n  \"title\": \"75% of daily limit reached\",\n  \"message\": \"You've used 375,000 of 500,000 daily tokens.\",\n  \"timestamp\": \"2025-01-15T14:30:00Z\",\n  \"category\": \"token_threshold\"\n}\n\nAlert categories: token_threshold, cost_threshold, anomaly, predictive, model_switch.\n\nTest with: wscat -c ws://localhost:7890/ws/alerts"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

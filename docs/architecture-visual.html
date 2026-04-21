@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TokenLens — Architecture Visualization</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#242836;--border:#2e3345;
+  --text:#e4e7ef;--text-dim:#8b92a8;--accent:#6c63ff;--accent2:#00d4aa;
+  --warn:#ffb347;--danger:#ff6b6b;--success:#00d4aa;
+  --radius:12px;--shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+
+/* Hero */
+.hero{text-align:center;padding:80px 24px 60px;background:linear-gradient(180deg,#1a1d27 0%,var(--bg) 100%)}
+.hero-icon{width:80px;height:80px;margin:0 auto 24px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:20px;display:flex;align-items:center;justify-content:center}
+.hero-icon svg{width:48px;height:48px;fill:#fff}
+.hero h1{font-size:3rem;font-weight:700;margin-bottom:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:1.2rem;color:var(--text-dim);max-width:600px;margin:0 auto}
+
+/* Section */
+section{padding:60px 0}
+section h2{font-size:2rem;font-weight:600;margin-bottom:32px;text-align:center}
+.section-subtitle{text-align:center;color:var(--text-dim);margin-top:-24px;margin-bottom:32px}
+
+/* Architecture Diagram */
+.arch-diagram{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:40px}
+.arch-node{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .3s ease;position:relative;overflow:hidden}
+.arch-node:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
+.arch-node.active{border-color:var(--accent2);box-shadow:0 0 20px rgba(0,212,170,0.2)}
+.arch-node h3{font-size:1rem;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.arch-node .icon{width:24px;height:24px;flex-shrink:0}
+.arch-node p{font-size:0.85rem;color:var(--text-dim);display:none}
+.arch-node.active p{display:block}
+.arch-node::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--accent);opacity:0;transition:opacity .3s}
+.arch-node.active::before{opacity:1}
+
+/* Data Flow */
+.flow-container{position:relative;padding:40px 0}
+.flow-track{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;padding:20px 0}
+.flow-step{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;text-align:center;min-width:120px;position:relative;transition:all .5s ease}
+.flow-step h4{font-size:0.9rem;font-weight:600;margin-bottom:4px}
+.flow-step span{font-size:0.75rem;color:var(--text-dim)}
+.flow-arrow{color:var(--accent2);font-size:1.5rem;padding:0 8px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
+.flow-step.active{border-color:var(--accent2);box-shadow:0 0 16px rgba(0,212,170,0.3);transform:scale(1.05)}
+
+/* Feature Cards */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:all .3s ease}
+.feature-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.feature-card .card-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:1.4rem}
+.feature-card h3{font-size:1.1rem;font-weight:600;margin-bottom:8px}
+.feature-card p{font-size:0.9rem;color:var(--text-dim)}
+.card-icon.purple{background:rgba(108,99,255,0.15)}
+.card-icon.green{background:rgba(0,212,170,0.15)}
+.card-icon.orange{background:rgba(255,179,71,0.15)}
+.card-icon.red{background:rgba(255,107,107,0.15)}
+
+/* Tools Section */
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.tool-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center}
+.tool-card h3{font-size:1.1rem;margin-bottom:8px}
+.tool-card p{font-size:0.85rem;color:var(--text-dim)}
+.tool-card .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:600;margin-top:12px}
+.badge.supported{background:rgba(0,212,170,0.15);color:var(--accent2)}
+.badge.mcp{background:rgba(108,99,255,0.15);color:var(--accent)}
+
+/* ML Section */
+.ml-states{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
+.ml-state{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
+.ml-state h4{font-size:0.9rem;margin-bottom:8px;color:var(--text-dim)}
+.ml-state .days{font-size:2rem;font-weight:700;margin-bottom:4px}
+.ml-state .status{font-size:0.8rem;padding:4px 10px;border-radius:12px;display:inline-block}
+.status.cold{background:rgba(255,107,107,0.15);color:var(--danger)}
+.status.warm{background:rgba(255,179,71,0.15);color:var(--warn)}
+.status.hot{background:rgba(0,212,170,0.15);color:var(--success)}
+
+/* CLI Showcase */
+.cli-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:0.85rem;overflow-x:auto;margin-bottom:16px}
+.cli-block .prompt{color:var(--accent2)}
+.cli-block .output{color:var(--text-dim)}
+.cli-block .highlight{color:var(--accent)}
+
+/* Tech Stack */
+.tech-badges{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:24px}
+.tech-badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:8px 16px;font-size:0.85rem;font-weight:500;transition:all .3s}
+.tech-badge:hover{border-color:var(--accent);background:rgba(108,99,255,0.1)}
+
+/* Footer */
+footer{text-align:center;padding:40px 24px;color:var(--text-dim);font-size:0.85rem;border-top:1px solid var(--border)}
+
+@media(max-width:768px){
+  .hero h1{font-size:2rem}
+  .arch-diagram{grid-template-columns:1fr}
+  .ml-states{grid-template-columns:1fr}
+  .flow-track{flex-direction:column}
+  .flow-arrow{transform:rotate(90deg)}
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="hero-icon">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+  </div>
+  <h1>TokenLens</h1>
+  <p>Universal AI token monitoring and prediction platform for coding tools. Track, forecast, and optimize your LLM token consumption.</p>
+</header>
+
+<!-- Architecture Diagram -->
+<section>
+  <div class="container">
+    <h2>System Architecture</h2>
+    <p class="section-subtitle">Click any component to expand details</p>
+    <div class="arch-diagram">
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">📡</span> Adapters</h3>
+        <p>Claude Code (.jsonl parser) and Kiro (MCP + tiktoken estimation). Pluggable via entry-points. Synchronous I/O wrapped in asyncio.to_thread().</p>
+      </div>
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">⚙️</span> Agent (Daemon)</h3>
+        <p>Background daemon with watchdog file watcher, event pipeline (dedup + batch), session manager (gap detection), and ML task runner. PID file + heartbeat for health.</p>
+      </div>
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">🧠</span> ML Pipeline</h3>
+        <p>Forecaster (Holt-Winters/Prophet), Anomaly (IsolationForest), Efficiency (5-factor scoring), Profiler (KMeans), Budget (cost projection). Models persisted via joblib.</p>
+      </div>
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">🚀</span> API Server</h3>
+        <p>FastAPI with 9 route groups, WebSocket live push (5s), alert broadcast, Swagger docs at /docs. CORS configured for frontend dev server.</p>
+      </div>
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">🔔</span> Alert Engine</h3>
+        <p>Threshold triggers (50/75/90/100%), anomaly alerts, predictive alerts (2h warning), model switch detection. 24h dedup window. Dispatches to desktop, webhook, WebSocket.</p>
+      </div>
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">💾</span> Storage</h3>
+        <p>SQLite with WAL mode via aiosqlite. 5 tables: token_events, sessions, adapter_state, settings, anomalies. Composite index on (tool, timestamp) for fast queries.</p>
+      </div>
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">🖥️</span> Frontend</h3>
+        <p>React + TypeScript + Vite SPA. Real-time charts via WebSocket with client-side interpolation. Dark theme dashboard with heatmaps, timelines, and efficiency scores.</p>
+      </div>
+      <div class="arch-node" onclick="toggleNode(this)">
+        <h3><span class="icon">🔌</span> Integrations</h3>
+        <p>MCP server (stdio) for Kiro with 3 tools. Auto-generates .kiro/steering/token-budget.md every 30 min. Shell hook for prompt integration.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Data Flow Animation -->
+<section style="background:var(--surface)">
+  <div class="container">
+    <h2>Data Flow</h2>
+    <p class="section-subtitle">Watch data move through the system</p>
+    <div class="flow-container">
+      <div class="flow-track" id="flowTrack">
+        <div class="flow-step" data-step="0">
+          <h4>📄 Log Files</h4>
+          <span>.jsonl</span>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step" data-step="1">
+          <h4>🔌 Adapters</h4>
+          <span>Parse & normalize</span>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step" data-step="2">
+          <h4>⚙️ Pipeline</h4>
+          <span>Dedup & batch</span>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step" data-step="3">
+          <h4>💾 SQLite</h4>
+          <span>WAL mode</span>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step" data-step="4">
+          <h4>🚀 API</h4>
+          <span>REST + WS</span>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step" data-step="5">
+          <h4>📊 Dashboard</h4>
+          <span>Real-time</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Feature Cards -->
+<section>
+  <div class="container">
+    <h2>Features</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="card-icon purple">📈</div>
+        <h3>Burn Rate Forecasting</h3>
+        <p>24-hour token consumption forecast with 80% and 95% confidence intervals. Holt-Winters seasonality or Prophet for weekly patterns.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon red">🚨</div>
+        <h3>Anomaly Detection</h3>
+        <p>IsolationForest on 6 hourly features detects unusual patterns: context loading bursts, extended conversations, usage spikes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon green">⚡</div>
+        <h3>Efficiency Scoring</h3>
+        <p>5-factor weighted score (0-100) per session: output/input ratio, cache hits, turn count, context growth, cost per token.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon orange">💰</div>
+        <h3>Budget Projection</h3>
+        <p>Monthly cost projection with what-if simulation. Model context size changes, model switches, and usage adjustments.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon purple">🔔</div>
+        <h3>Smart Alerts</h3>
+        <p>Threshold (50/75/90/100%), anomaly, and predictive alerts. Desktop notifications, webhooks, and WebSocket broadcast with 24h dedup.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon green">👤</div>
+        <h3>Behavioral Profiling</h3>
+        <p>KMeans clustering classifies usage into archetypes: Morning Sprinter, Steady Coder, Night Owl. Detects weekly drift.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon orange">📊</div>
+        <h3>Usage Heatmap</h3>
+        <p>24×7 heatmap showing token consumption by day-of-week and hour. Identify peak usage patterns at a glance.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon red">🔍</div>
+        <h3>Waste Detection</h3>
+        <p>Detects repeated context loading, excessive back-and-forth, and context bloat patterns. Generates actionable recommendations.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tool Support -->
+<section style="background:var(--surface)">
+  <div class="container">
+    <h2>Supported Tools</h2>
+    <div class="tools-grid">
+      <div class="tool-card">
+        <h3>Claude Code</h3>
+        <p>Parses JSONL conversation logs from ~/.claude/projects/. Tracks byte offsets for incremental parsing. Zero-config discovery.</p>
+        <span class="badge supported">✓ Native Adapter</span>
+      </div>
+      <div class="tool-card">
+        <h3>Kiro</h3>
+        <p>MCP server integration via stdio transport. Token estimation using tiktoken cl100k_base. Auto-generates steering files.</p>
+        <span class="badge mcp">⚡ MCP Integration</span>
+      </div>
+      <div class="tool-card">
+        <h3>Custom Tools</h3>
+        <p>Extend via entry-point plugins. Implement the ToolAdapter interface: discover(), get_log_paths(), parse_file().</p>
+        <span class="badge supported">🔌 Plugin System</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ML Cold Start -->
+<section>
+  <div class="container">
+    <h2>ML Capabilities</h2>
+    <p class="section-subtitle">Models improve as data accumulates</p>
+    <div class="ml-states">
+      <div class="ml-state">
+        <h4>Cold Start</h4>
+        <div class="days">0-1</div>
+        <span>days</span>
+        <div style="margin-top:12px"><span class="status cold">Collecting Data</span></div>
+        <p style="margin-top:12px;font-size:0.8rem;color:var(--text-dim)">Basic status only. No forecasts or anomaly detection.</p>
+      </div>
+      <div class="ml-state">
+        <h4>Warming Up</h4>
+        <div class="days">1-7</div>
+        <span>days</span>
+        <div style="margin-top:12px"><span class="status warm">Linear Models</span></div>
+        <p style="margin-top:12px;font-size:0.8rem;color:var(--text-dim)">Linear extrapolation. Reduced confidence anomaly detection.</p>
+      </div>
+      <div class="ml-state">
+        <h4>Full Power</h4>
+        <div class="days">7+</div>
+        <span>days</span>
+        <div style="margin-top:12px"><span class="status hot">Full ML Suite</span></div>
+        <p style="margin-top:12px;font-size:0.8rem;color:var(--text-dim)">Holt-Winters/Prophet forecasting. Full anomaly detection. Profiling at 30 days.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLI Showcase -->
+<section style="background:var(--surface)">
+  <div class="container">
+    <h2>CLI Commands</h2>
+    <div class="cli-block">
+      <span class="prompt">$</span> tokenlens init<br>
+      <span class="output">✓ Created ~/.tokenlens/ directory structure</span><br>
+      <span class="output">✓ Generated default config at ~/.tokenlens/config.toml</span><br>
+      <span class="output">✓ claude_code adapter found at ~/.claude/projects</span><br><br>
+      <span class="prompt">$</span> tokenlens agent start --foreground<br>
+      <span class="output">Available adapters: ['claude_code']</span><br>
+      <span class="output">Daemon watch loop started.</span><br><br>
+      <span class="prompt">$</span> tokenlens status<br>
+      <span class="highlight">Today: 45,231 tokens | Claude Code: 45K | Cost: $0.45 | Burn: moderate</span><br><br>
+      <span class="prompt">$</span> tokenlens serve --ui --port 7890<br>
+      <span class="output">Starting TokenLens API on 127.0.0.1:7890</span><br>
+      <span class="output">Docs: http://127.0.0.1:7890/docs</span><br><br>
+      <span class="prompt">$</span> tokenlens predict<br>
+      <span class="highlight">Burn Rate Forecast (next 24h): ~2,340 tokens/hour</span><br>
+      <span class="output">Projected daily: 56,160 tokens — within limit</span>
+    </div>
+  </div>
+</section>
+
+<!-- Tech Stack -->
+<section>
+  <div class="container">
+    <h2>Tech Stack</h2>
+    <div class="tech-badges">
+      <span class="tech-badge">Python 3.12+</span>
+      <span class="tech-badge">FastAPI</span>
+      <span class="tech-badge">SQLAlchemy 2.0</span>
+      <span class="tech-badge">SQLite (WAL)</span>
+      <span class="tech-badge">aiosqlite</span>
+      <span class="tech-badge">Pydantic v2</span>
+      <span class="tech-badge">Typer + Rich</span>
+      <span class="tech-badge">scikit-learn</span>
+      <span class="tech-badge">statsmodels</span>
+      <span class="tech-badge">pandas</span>
+      <span class="tech-badge">watchdog</span>
+      <span class="tech-badge">uvicorn</span>
+      <span class="tech-badge">dynaconf</span>
+      <span class="tech-badge">structlog</span>
+      <span class="tech-badge">MCP SDK</span>
+      <span class="tech-badge">React + Vite</span>
+      <span class="tech-badge">Docker</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>TokenLens v1.0.0 — MIT License — Built for developers who care about token efficiency</p>
+</footer>
+
+<script>
+// Toggle architecture nodes
+function toggleNode(el) {
+  const wasActive = el.classList.contains('active');
+  document.querySelectorAll('.arch-node').forEach(n => n.classList.remove('active'));
+  if (!wasActive) el.classList.add('active');
+}
+
+// Data flow animation
+let currentStep = 0;
+const steps = document.querySelectorAll('.flow-step');
+function animateFlow() {
+  steps.forEach(s => s.classList.remove('active'));
+  steps[currentStep].classList.add('active');
+  currentStep = (currentStep + 1) % steps.length;
+}
+setInterval(animateFlow, 1500);
+animateFlow();
+
+// Smooth scroll for any internal links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.querySelector(this.getAttribute('href')).scrollIntoView({behavior:'smooth'});
+  });
+});
+</script>
+</body>
+</html>

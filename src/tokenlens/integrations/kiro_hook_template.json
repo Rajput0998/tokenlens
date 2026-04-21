@@ -1,0 +1,12 @@
+{
+  "name": "TokenLens Session End",
+  "description": "Log token usage when a Kiro session ends",
+  "event": "session_end",
+  "action": {
+    "type": "command",
+    "command": "tokenlens status --short"
+  },
+  "conditions": {
+    "min_turns": 3
+  }
+}
