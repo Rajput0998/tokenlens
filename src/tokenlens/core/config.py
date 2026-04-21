@@ -2,14 +2,44 @@
 
 from __future__ import annotations
 
+import shutil
 import statistics
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from dynaconf import Dynaconf
 
 TOKENLENS_DIR = Path.home() / ".tokenlens"
 CONFIG_PATH = TOKENLENS_DIR / "config.toml"
+
+
+def _ensure_valid_config() -> None:
+    """Check config.toml is readable UTF-8; if not, back it up and recreate it.
+
+    A corrupted (non-UTF-8) config file causes dynaconf to raise a
+    ``UnicodeDecodeError`` at import time.  We detect that condition early,
+    rename the bad file to ``config.toml.bak.<timestamp>`` so it isn't lost,
+    and write a fresh default so the process can continue.
+    """
+    if not CONFIG_PATH.exists():
+        return
+    try:
+        CONFIG_PATH.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, ValueError):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup = CONFIG_PATH.with_name(f"config.toml.bak.{timestamp}")
+        shutil.move(str(CONFIG_PATH), str(backup))
+        # Write a minimal valid config so dynaconf can load cleanly.
+        # The full DEFAULT_CONFIG_TEMPLATE is written by the CLI init command.
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_PATH.write_text(
+            '[general]\nuser_id = "default"\ndata_dir = "~/.tokenlens"\n',
+            encoding="utf-8",
+        )
+
+
+_ensure_valid_config()
 
 settings = Dynaconf(
     envvar_prefix="TOKENLENS",

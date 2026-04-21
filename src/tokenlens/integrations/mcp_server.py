@@ -1,6 +1,6 @@
 """TokenLens MCP Server — stdio transport for Kiro integration.
 
-Provides tools for logging conversation turns, querying token status,
+Provides tools for estimating Kiro token usage, querying token status,
 and getting efficiency tips via the Model Context Protocol.
 """
 
@@ -39,90 +39,6 @@ def _get_or_create_session(tool: str, timestamp: datetime) -> str:
             new_id = str(uuid.uuid4())
             _mcp_sessions[tool] = (new_id, timestamp)
             return new_id
-
-
-def _estimate_tokens(text: str) -> int:
-    """Estimate token count using tiktoken cl100k_base encoding."""
-    try:
-        import tiktoken
-
-        enc = tiktoken.get_encoding("cl100k_base")
-        return len(enc.encode(text))
-    except ImportError:
-        # Fallback: rough estimate of ~4 chars per token
-        return max(len(text) // 4, 1)
-
-
-@mcp.tool()
-async def log_conversation_turn(
-    role: str,
-    content: str,
-    model: str = "kiro-auto",
-    timestamp: str | None = None,
-) -> dict[str, Any]:
-    """Log a conversation turn with token estimation.
-
-    Args:
-        role: The role of the speaker (e.g., "user", "assistant").
-        content: The text content of the turn.
-        model: The model name (default: "kiro-auto").
-        timestamp: ISO format timestamp (default: now).
-
-    Returns:
-        Dict with event_id and estimated_tokens.
-    """
-    ts = datetime.fromisoformat(timestamp) if timestamp else datetime.now(UTC)
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=UTC)
-
-    estimated_tokens = _estimate_tokens(content)
-    session_id = _get_or_create_session("kiro", ts)
-    event_id = str(uuid.uuid4())
-
-    # Determine input vs output tokens based on role
-    if role == "assistant":
-        input_tokens = 0
-        output_tokens = estimated_tokens
-    else:
-        input_tokens = estimated_tokens
-        output_tokens = 0
-
-    # Store in database
-    try:
-        from tokenlens.core.database import get_session
-        from tokenlens.core.models import TokenEventRow
-        from tokenlens.core.pricing import calculate_cost
-
-        cost, _ = calculate_cost(model, input_tokens, output_tokens)
-
-        async with get_session() as db:
-            row = TokenEventRow(
-                id=event_id,
-                tool="kiro",
-                model=model,
-                user_id="default",
-                session_id=session_id,
-                timestamp=ts,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                cost_usd=cost,
-                context_type="chat",
-                turn_number=0,
-                raw_metadata={"estimated": True, "role": role},
-            )
-            db.add(row)
-    except Exception:
-        import logging
-
-        logging.getLogger(__name__).warning(
-            "Failed to store MCP event in DB. Event may be lost.", exc_info=True
-        )
-
-    return {
-        "event_id": event_id,
-        "estimated_tokens": estimated_tokens,
-        "session_id": session_id,
-    }
 
 
 @mcp.tool()
@@ -185,96 +101,267 @@ async def get_token_status() -> dict[str, Any]:
         }
 
 
-@mcp.tool()
-async def log_session_summary(
-    turns: list[dict[str, str]],
-    model: str = "kiro-auto",
-    timestamp: str | None = None,
-) -> dict[str, Any]:
-    """Log an entire conversation session at once with accurate token estimation.
+def _estimate_content_tokens(text: str, content_type: str = "text") -> int:
+    """Estimate tokens for content based on type.
 
-    Call this once at the end of a conversation instead of logging each turn
-    individually. Each turn is tokenized separately for accurate input/output
-    token counts.
+    Uses tiktoken when available, otherwise uses type-specific char ratios:
+    - code: ~3.5 chars per token
+    - json/structured: ~3 chars per token
+    - text/natural language: ~4 chars per token
+    """
+    if not text:
+        return 0
+    try:
+        import tiktoken
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text))
+    except ImportError:
+        ratio = {"code": 3.5, "json": 3.0, "text": 4.0}.get(content_type, 4.0)
+        return max(int(len(text) / ratio), 1)
+
+
+# Fixed token overhead constants (based on Claude API behavior)
+_SYSTEM_PROMPT_TOKENS = 3000
+_ENV_CONTEXT_TOKENS = 300
+_PER_TOOL_CALL_OVERHEAD = 200
+_PER_IMAGE_TOKENS = 1500
+_CONVERSATION_HISTORY_BUFFER = 500  # metadata, separators, etc.
+
+
+@mcp.tool()
+async def estimate_kiro_turn(
+    user_message_chars: int = 0,
+    response_chars: int = 0,
+    files_read: list[dict[str, Any]] | None = None,
+    files_written: list[dict[str, Any]] | None = None,
+    tools_called: list[str] | None = None,
+    search_results_chars: int = 0,
+    command_output_chars: int = 0,
+    images_attached: int = 0,
+    subagents_invoked: int = 0,
+    model: str = "claude-opus-4.6",
+    notes: str = "",
+) -> dict[str, Any]:
+    """Estimate actual Kiro token usage for a conversation turn.
+
+    Call this at the end of every response to track real token consumption.
+    Accounts for system prompt, steering files, tool I/O, conversation
+    history, and all the hidden overhead that simple chat logging misses.
 
     Args:
-        turns: List of conversation turns. Each turn is a dict with:
-            - role: "user" or "assistant"
-            - content: The full text content of that turn
-        model: The model name (default: "kiro-auto").
-        timestamp: ISO format timestamp for the session (default: now).
+        user_message_chars: Character count of the user's message.
+        response_chars: Character count of the assistant's full response.
+        files_read: List of files read, each with 'path' and 'chars' keys.
+        files_written: List of files written/modified, each with 'path' and 'chars_changed'.
+        tools_called: List of tool names invoked (e.g. ["readFile", "strReplace", "grepSearch"]).
+        search_results_chars: Total chars of search/grep results received.
+        command_output_chars: Total chars of bash command outputs received.
+        images_attached: Number of images attached by the user.
+        subagents_invoked: Number of subagents delegated to.
+        model: Model name for cost calculation.
+        notes: Optional description of what was done this turn.
 
     Returns:
-        Dict with session_id, total_input_tokens, total_output_tokens,
-        total_cost, and turn_count.
+        Dict with estimated input_tokens, output_tokens, total_tokens, cost,
+        and breakdown of where tokens went.
     """
-    ts = datetime.fromisoformat(timestamp) if timestamp else datetime.now(UTC)
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=UTC)
+    files_read = files_read or []
+    files_written = files_written or []
+    tools_called = tools_called or []
 
+    # --- Measure steering file overhead ---
+    steering_tokens = 0
+    try:
+        import os
+        steering_dir = os.path.join(os.getcwd(), ".kiro", "steering")
+        if os.path.isdir(steering_dir):
+            for fname in os.listdir(steering_dir):
+                if fname.endswith(".md"):
+                    fpath = os.path.join(steering_dir, fname)
+                    with open(fpath, encoding="utf-8", errors="ignore") as f:
+                        steering_tokens += _estimate_content_tokens(f.read(), "text")
+    except Exception:
+        steering_tokens = 5000  # fallback estimate
+
+    # Also account for workspace-level steering rules injected by Kiro
+    # (sdlc-*, token-budget, etc.) — these are in the parent .kiro/steering
+    try:
+        import os
+        parent_steering = os.path.join(os.getcwd(), "..", ".kiro", "steering")
+        if os.path.isdir(parent_steering):
+            for fname in os.listdir(parent_steering):
+                if fname.endswith(".md"):
+                    fpath = os.path.join(parent_steering, fname)
+                    with open(fpath, encoding="utf-8", errors="ignore") as f:
+                        steering_tokens += _estimate_content_tokens(f.read(), "text")
+    except Exception:
+        pass
+
+    # --- Calculate input tokens ---
+    user_msg_tokens = _estimate_content_tokens("x" * user_message_chars, "text")
+    file_read_tokens = sum(
+        _estimate_content_tokens("x" * f.get("chars", 0), "code")
+        for f in files_read
+    )
+    search_tokens = _estimate_content_tokens("x" * search_results_chars, "text")
+    cmd_tokens = _estimate_content_tokens("x" * command_output_chars, "text")
+    image_tokens = images_attached * _PER_IMAGE_TOKENS
+
+    # Conversation history estimate: retrieve running total from DB
+    history_tokens = await _get_conversation_history_tokens()
+
+    input_tokens = (
+        _SYSTEM_PROMPT_TOKENS
+        + steering_tokens
+        + history_tokens
+        + user_msg_tokens
+        + file_read_tokens
+        + search_tokens
+        + cmd_tokens
+        + image_tokens
+        + _ENV_CONTEXT_TOKENS
+    )
+
+    # --- Calculate output tokens ---
+    response_tokens = _estimate_content_tokens("x" * response_chars, "text")
+    tool_call_tokens = len(tools_called) * _PER_TOOL_CALL_OVERHEAD
+    # Subagent invocations have significant overhead (prompt + context passing)
+    subagent_tokens = subagents_invoked * 2000
+
+    output_tokens = response_tokens + tool_call_tokens + subagent_tokens
+
+    total_tokens = input_tokens + output_tokens
+
+    # --- Calculate cost ---
+    try:
+        from tokenlens.core.pricing import calculate_cost
+        cost, matched = calculate_cost(model, input_tokens, output_tokens)
+        if not matched:
+            # Fallback: Opus 4 pricing ($15/M input, $75/M output)
+            cost = input_tokens * 15 / 1_000_000 + output_tokens * 75 / 1_000_000
+    except Exception:
+        cost = input_tokens * 15 / 1_000_000 + output_tokens * 75 / 1_000_000
+
+    # --- Store in DB ---
+    ts = datetime.now(UTC)
     session_id = _get_or_create_session("kiro", ts)
-
-    total_input = 0
-    total_output = 0
-    total_cost = 0.0
-    events_created = 0
+    event_id = str(uuid.uuid4())
 
     try:
-        from tokenlens.core.database import get_session
+        from tokenlens.core.database import get_session as get_db
         from tokenlens.core.models import TokenEventRow
-        from tokenlens.core.pricing import calculate_cost
 
-        async with get_session() as db:
-            for i, turn in enumerate(turns):
-                role = turn.get("role", "user")
-                content = turn.get("content", "")
-                if not content:
-                    continue
-
-                estimated = _estimate_tokens(content)
-                if role == "assistant":
-                    inp, out = 0, estimated
-                else:
-                    inp, out = estimated, 0
-
-                total_input += inp
-                total_output += out
-
-                cost, _ = calculate_cost(model, inp, out)
-                total_cost += cost
-
-                event_id = str(uuid.uuid4())
-                row = TokenEventRow(
-                    id=event_id,
-                    tool="kiro",
-                    model=model,
-                    user_id="default",
-                    session_id=session_id,
-                    timestamp=ts + timedelta(seconds=i),
-                    input_tokens=inp,
-                    output_tokens=out,
-                    cost_usd=cost,
-                    context_type="chat",
-                    turn_number=i + 1,
-                    raw_metadata={"estimated": True, "role": role, "batch": True},
-                )
-                db.add(row)
-                events_created += 1
-
+        async with get_db() as db:
+            row = TokenEventRow(
+                id=event_id,
+                tool="kiro",
+                model=model,
+                user_id="default",
+                session_id=session_id,
+                timestamp=ts,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=round(cost, 6),
+                context_type="chat",
+                turn_number=0,
+                raw_metadata={
+                    "estimated": True,
+                    "estimation_method": "kiro_self_report",
+                    "breakdown": {
+                        "system_prompt": _SYSTEM_PROMPT_TOKENS,
+                        "steering": steering_tokens,
+                        "history": history_tokens,
+                        "user_message": user_msg_tokens,
+                        "files_read": file_read_tokens,
+                        "search_results": search_tokens,
+                        "command_outputs": cmd_tokens,
+                        "images": image_tokens,
+                        "env_context": _ENV_CONTEXT_TOKENS,
+                        "response": response_tokens,
+                        "tool_calls": tool_call_tokens,
+                        "subagents": subagent_tokens,
+                    },
+                    "tools_called": tools_called,
+                    "files_read_paths": [f.get("path", "") for f in files_read],
+                    "files_written_paths": [f.get("path", "") for f in files_written],
+                    "notes": notes,
+                },
+            )
+            db.add(row)
     except Exception:
         import logging
         logging.getLogger(__name__).warning(
-            "Failed to store session summary. Events may be lost.", exc_info=True
+            "Failed to store Kiro turn estimate in DB.", exc_info=True
         )
 
+    # Update running history total
+    await _update_conversation_history_tokens(user_msg_tokens + response_tokens)
+
     return {
+        "event_id": event_id,
         "session_id": session_id,
-        "total_input_tokens": total_input,
-        "total_output_tokens": total_output,
-        "total_tokens": total_input + total_output,
-        "total_cost": round(total_cost, 6),
-        "turn_count": events_created,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "cost_usd": round(cost, 6),
+        "breakdown": {
+            "system_prompt": _SYSTEM_PROMPT_TOKENS,
+            "steering_files": steering_tokens,
+            "conversation_history": history_tokens,
+            "user_message": user_msg_tokens,
+            "files_read": file_read_tokens,
+            "search_results": search_tokens,
+            "command_outputs": cmd_tokens,
+            "images": image_tokens,
+            "response_text": response_tokens,
+            "tool_call_overhead": tool_call_tokens,
+            "subagent_overhead": subagent_tokens,
+        },
     }
+
+
+async def _get_conversation_history_tokens() -> int:
+    """Retrieve the running conversation history token count from settings."""
+    try:
+        from tokenlens.core.database import get_session as get_db
+        from tokenlens.core.models import SettingRow
+        from sqlalchemy import select
+
+        async with get_db() as db:
+            result = await db.execute(
+                select(SettingRow.value).where(SettingRow.key == "kiro_history_tokens")
+            )
+            val = result.scalar()
+            return int(val) if val else 0
+    except Exception:
+        return 0
+
+
+async def _update_conversation_history_tokens(added_tokens: int) -> None:
+    """Add tokens to the running conversation history total."""
+    try:
+        from tokenlens.core.database import get_session as get_db
+        from tokenlens.core.models import SettingRow
+        from sqlalchemy import select
+
+        current = await _get_conversation_history_tokens()
+        new_total = current + added_tokens
+
+        async with get_db() as db:
+            result = await db.execute(
+                select(SettingRow).where(SettingRow.key == "kiro_history_tokens")
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                row.value = str(new_total)
+                row.updated_at = datetime.now(UTC)
+            else:
+                db.add(SettingRow(
+                    key="kiro_history_tokens",
+                    value=str(new_total),
+                ))
+    except Exception:
+        pass
 
 
 @mcp.tool()

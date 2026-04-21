@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from tokenlens.integrations.mcp_server import (
-    _estimate_tokens,
+    _estimate_content_tokens,
     _get_or_create_session,
     _mcp_lock,
     _mcp_sessions,
@@ -16,64 +16,73 @@ from tokenlens.integrations.mcp_server import (
 
 
 # ---------------------------------------------------------------------------
-# tiktoken estimation
+# Token estimation by content type
 # ---------------------------------------------------------------------------
 
 
-class TestTiktokenEstimation:
-    """Test tiktoken estimation produces non-zero token counts."""
+class TestContentTokenEstimation:
+    """Test _estimate_content_tokens with different content types."""
 
-    def test_non_empty_string(self) -> None:
-        tokens = _estimate_tokens("Hello, world! This is a test message.")
+    def test_non_empty_text(self) -> None:
+        tokens = _estimate_content_tokens("Hello, world! This is a test message.", "text")
         assert tokens > 0
 
     def test_empty_string(self) -> None:
-        tokens = _estimate_tokens("")
-        # tiktoken returns 0 for empty string, fallback returns 1
-        assert tokens >= 0
+        tokens = _estimate_content_tokens("", "text")
+        assert tokens == 0
 
     def test_long_string(self) -> None:
         text = "The quick brown fox jumps over the lazy dog. " * 100
-        tokens = _estimate_tokens(text)
+        tokens = _estimate_content_tokens(text, "text")
         assert tokens > 100
 
     def test_code_content(self) -> None:
         code = "def hello():\n    print('Hello, world!')\n    return 42\n"
-        tokens = _estimate_tokens(code)
+        tokens = _estimate_content_tokens(code, "code")
         assert tokens > 5
 
+    def test_code_has_more_tokens_than_text(self) -> None:
+        """Code uses ~3.5 chars/token vs text ~4 chars/token, so same string = more tokens as code."""
+        content = "x" * 1000
+        code_tokens = _estimate_content_tokens(content, "code")
+        text_tokens = _estimate_content_tokens(content, "text")
+        assert code_tokens >= text_tokens
+
 
 # ---------------------------------------------------------------------------
-# log_conversation_turn creates estimated event
+# estimate_kiro_turn creates accurate event
 # ---------------------------------------------------------------------------
 
 
-class TestLogConversationTurn:
-    """Test log_conversation_turn creates TokenEvent with estimated=true."""
+class TestEstimateKiroTurn:
+    """Test estimate_kiro_turn creates TokenEvent with full breakdown."""
 
     @pytest.mark.asyncio
     async def test_creates_event(self) -> None:
-        from tokenlens.integrations.mcp_server import log_conversation_turn
+        from tokenlens.integrations.mcp_server import estimate_kiro_turn
 
-        result = await log_conversation_turn(
-            role="user",
-            content="Write a Python function to sort a list.",
-            model="kiro-auto",
+        result = await estimate_kiro_turn(
+            user_message_chars=200,
+            response_chars=1000,
+            tools_called=["readFile", "strReplace"],
+            model="claude-opus-4.6",
+            notes="test turn",
         )
         assert "event_id" in result
-        assert "estimated_tokens" in result
-        assert result["estimated_tokens"] > 0
-        assert "session_id" in result
+        assert "total_tokens" in result
+        assert result["total_tokens"] > 0
+        assert "breakdown" in result
+        assert result["breakdown"]["system_prompt"] == 3000
+        assert result["breakdown"]["tool_call_overhead"] == 400  # 2 tools × 200
 
     @pytest.mark.asyncio
-    async def test_assistant_role(self) -> None:
-        from tokenlens.integrations.mcp_server import log_conversation_turn
+    async def test_file_read_tokens(self) -> None:
+        from tokenlens.integrations.mcp_server import estimate_kiro_turn
 
-        result = await log_conversation_turn(
-            role="assistant",
-            content="Here is a sorting function:\ndef sort_list(lst):\n    return sorted(lst)",
+        result = await estimate_kiro_turn(
+            files_read=[{"path": "test.py", "chars": 3500}],
         )
-        assert result["estimated_tokens"] > 0
+        assert result["breakdown"]["files_read"] > 0
 
 
 # ---------------------------------------------------------------------------
