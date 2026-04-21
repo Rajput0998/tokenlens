@@ -57,7 +57,7 @@ api = [
     "plyer>=2.1",
 ]
 tui = [
-    "textual>=0.70",
+    "textual>=8.2.4",
 ]
 ui = []
 all = [
